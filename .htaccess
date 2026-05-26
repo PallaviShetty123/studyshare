@@ -1,0 +1,8 @@
+# Apache DirectoryIndex - prioritize index.html over index.php
+DirectoryIndex index.html index.php index.htm
+
+# Enable RewriteEngine for URL rewriting
+RewriteEngine On
+
+# Prevent directory browsing
+Options -Indexes +FollowSymLinks

@@ -1,0 +1,15 @@
+# General PHP project ignore
+vendor/
+composer.lock
+.env
+# IDE / OS files
+.DS_Store
+Thumbs.db
+# Secrets
+common/service-account.json
+common/token.json
+common/client_secret.json
+# Log files
+*.log
+# Misc
+*.tmp

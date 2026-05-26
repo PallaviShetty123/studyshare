@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary: #6366F1;
+    --secondary: #8B5CF6;
+    --accent: #F59E0B;
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --error: #EF4444;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    min-height: 100%;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #9333ea 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.particles {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.particle {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: floatParticle linear infinite;
+}
+
+@keyframes floatParticle {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.3; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-1000px) rotate(360deg); opacity: 0; }
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    z-index: 1;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.logo-section { text-align: center; margin-bottom: 2rem; }
+.logo-icon { font-size: 3rem; display: block; margin-bottom: 0.5rem; color: #fff; display:flex; justify-content:center;}
+.logo-icon svg { width: 48px; height: 48px; }
+.logo-text { font-size: 2rem; font-weight: 700; color: #fff; }
+.subtitle { color: rgba(255,255,255,0.75); margin-top: 0.5rem; }
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: #FCA5A5;
+    font-size: 0.9rem;
+    animation: shake 0.5s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.error-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+.input-group { margin-bottom: 1.25rem; position: relative; }
+
+.input-group label { 
+    position: absolute; 
+    top: -10px;
+    left: 1rem;
+    font-size: 0.75rem;
+    background: rgba(139, 92, 246, 0.9);
+    padding: 0.1rem 0.6rem;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 500;
+    pointer-events: none; 
+    z-index: 2;
+}
+
+.input-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.6); font-size: 1.2rem; z-index: 1; display:flex;}
+.input-icon svg { width: 20px; height: 20px; }
+
+.input-group input {
+    width: 100%;
+    padding: 1rem 1rem 1rem 3.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    color: #fff;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.input-group input::placeholder { color: rgba(255, 255, 255, 0.4); font-size: 0.95rem; }
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+
+.input-group.focused .input-icon { color: #fff; }
+
+.date-picker-toggle {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    display: none;
+}
+
+.btn-login {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(99, 102, 241, 0.5);
+}
+
+.btn-arrow { width: 20px; height: 20px; transition: transform 0.3s; }
+.btn-login:hover .btn-arrow { transform: translateX(5px); }
+
+.btn-login.loading { pointer-events: none; color: transparent; }
+.btn-login.loading .btn-text, .btn-login.loading .btn-arrow { opacity: 0; }
+.btn-loader { display: none; }
+.btn-login.loading .btn-loader {
+    display: block;
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.footer-link {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+}
+
+.footer-link p { color: rgba(255,255,255,0.7); font-size: 0.875rem; }
+.footer-link a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.footer-link a:hover { text-decoration: underline; }
+
+.back-link { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 0.5rem; 
+    margin-top: 1rem; 
+    color: rgba(255,255,255,0.6); 
+    font-size: 0.875rem; 
+    text-decoration: none; 
+}
+.back-link:hover { color: #fff; }
+
+@media (max-width: 480px) {
+    .login-card { padding: 1.75rem; }
+    .logo-text { font-size: 1.5rem; }
+}
