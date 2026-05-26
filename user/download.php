@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../common/auth_user.php';
+require_once __DIR__ . '/../common/auth_lecturer.php';
 require_once __DIR__ . '/../common/db.php';
 require_once __DIR__ . '/../common/functions.php';
 require_once __DIR__ . '/../common/drive_helper.php';
@@ -32,20 +33,34 @@ try {
 } catch (Exception $e) {
     // Continue anyway
 }
+// Determine which file ID to use based on user role
+$fileId = $note['file_path']; // default original
+if (function_exists('isLecturerLoggedIn') && isLecturerLoggedIn()) {
+    if (!empty($note['scanned_file_path'])) {
+        $fileId = $note['scanned_file_path'];
+    }
+}
 
-// Check if it's a Google Drive File ID (usually alphanumeric with specific length, but we can try DriveHelper)
+// Try to get Google Drive view link for the selected file ID
 try {
     $drive = new DriveHelper();
-    $viewLink = $drive->getViewLink($note['file_path']);
+    $viewLink = $drive->getViewLink($fileId);
     if ($viewLink) {
         header('Location: ' . $viewLink);
         exit;
     }
 } catch (Exception $e) {
-    // If it fails, it might be a local file, continue to local download
+    // If it fails, fallback to local file
 }
 
+// Determine local file path (original or scanned) if needed
 $file_path = NOTES_DIR . $note['file_path'];
+if (function_exists('isLecturerLoggedIn') && isLecturerLoggedIn() && !empty($note['scanned_file_path'])) {
+    $scanned_local = SCANNED_DIR . $note['file_path'];
+    if (file_exists($scanned_local)) {
+        $file_path = $scanned_local;
+    }
+}
 
 if (!file_exists($file_path)) {
     header('HTTP/1.0 404 Not Found');

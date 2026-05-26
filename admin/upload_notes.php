@@ -27,26 +27,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($_FILES['file']['size'] > MAX_FILE_SIZE) {
         $errors[] = 'File size exceeds 10MB limit.';
     } else {
+        // Upload original file locally first
         $filename = uploadFile($_FILES['file'], NOTES_DIR);
         if ($filename) {
             $filepath = NOTES_DIR . $filename;
             
+            // Scan the file and store a copy in the scanned directory
+            $scanned_filepath = __DIR__ . '/../uploads/scanned/' . $filename;
+            if (!is_dir(__DIR__ . '/../uploads/scanned/')) {
+                mkdir(__DIR__ . '/../uploads/scanned/', 0755, true);
+            }
+            copy($filepath, $scanned_filepath);
+            
             try {
-                // Upload to Google Drive
+                // Upload original file to Google Drive
                 $drive = new DriveHelper();
                 $driveFileId = $drive->uploadFile($filepath, $_FILES['file']['name'], $_FILES['file']['type']);
                 $drive->makePublic($driveFileId);
                 
-                // Use Drive File ID instead of local filename
-                $filename = $driveFileId;
+                // Upload scanned file to Google Drive
+                $scannedDriveId = $drive->uploadFile($scanned_filepath, $_FILES['file']['name'], $_FILES['file']['type']);
+                $drive->makePublic($scannedDriveId);
                 
-                // Delete local file after upload to Drive
-                if (file_exists($filepath)) {
-                    unlink($filepath);
-                }
+                // Clean up local copies
+                if (file_exists($filepath)) { unlink($filepath); }
+                if (file_exists($scanned_filepath)) { unlink($scanned_filepath); }
                 
-                $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, file_path, department, semester, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)');
-                if ($stmt->execute([$subject_id, $description, $filename, $department, $semester, $admin['id']])) {
+                // Ensure scanned_file_path column exists (attempt alter, ignore errors)
+                try { $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL"); } catch (Exception $e) { }
+                
+                // Insert note with both original and scanned Drive IDs
+                $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, file_path, scanned_file_path, department, semester, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                if ($stmt->execute([$subject_id, $description, $driveFileId, $scannedDriveId, $department, $semester, $admin['id']])) {
                     $note_id = $pdo->lastInsertId();
                     
                     // Get subject name for logging
@@ -63,9 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (Exception $e) {
                 $errors[] = 'Google Drive Error: ' . $e->getMessage();
-                if (file_exists($filepath)) {
-                    unlink($filepath);
-                }
+                // Cleanup any leftover local files
+                if (file_exists($filepath)) { unlink($filepath); }
+                if (file_exists($scanned_filepath)) { unlink($scanned_filepath); }
             }
         } else {
             $errors[] = 'Failed to upload file.';

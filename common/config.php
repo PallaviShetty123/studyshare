@@ -21,6 +21,7 @@ define('PROFILE_URL', UPLOAD_URL . '/profile');
 define('UPLOAD_DIR', realpath(__DIR__ . '/../uploads') . '/');
 define('PROFILE_DIR', UPLOAD_DIR . 'profile/');
 define('NOTES_DIR', UPLOAD_DIR . 'notes/');
+define('SCANNED_DIR', UPLOAD_DIR . 'scanned/');
 define('MAX_FILE_SIZE', 10 * 1024 * 1024);
 define('ALLOWED_EXTENSIONS', ['pdf', 'doc', 'docx']);
 define('ALLOWED_MIME_TYPES', [

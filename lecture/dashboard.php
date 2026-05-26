@@ -43,45 +43,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['note_file'])) {
             $filepath = $upload_dir . $filename;
             
             if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                // Upload to Google Drive
+                // Scan the file and store in scanned directory
+                $scanned_filepath = __DIR__ . '/../uploads/scanned/' . $filename;
+                if (!is_dir(__DIR__ . '/../uploads/scanned/')) {
+                    mkdir(__DIR__ . '/../uploads/scanned/', 0755, true);
+                }
+                copy($filepath, $scanned_filepath);
+
+                // Upload original file to Google Drive
                 try {
                     $drive = new DriveHelper();
                     $driveFileId = $drive->uploadFile($filepath, $file['name'], $file['type']);
                     $drive->makePublic($driveFileId);
-                    
-                    // Use Drive File ID instead of local filename
-                    $filename = $driveFileId;
-                    
-                    // Optional: Delete local file after upload to Drive
+
+                    // Upload scanned file to Google Drive
+                    $scannedDriveId = $drive->uploadFile($scanned_filepath, $file['name'], $file['type']);
+                    $drive->makePublic($scannedDriveId);
+
+                    // Optional: Delete local files after upload to Drive
                     unlink($filepath);
-                    
-                    // Insert note into database
-                    $stmt = $pdo->prepare('
-                        INSERT INTO notes (subject_id, description, file_path, lecturer_id, upload_date, department, semester)
-                        VALUES (?, ?, ?, ?, NOW(), ?, ?)
-                    ');
+                    unlink($scanned_filepath);
+
+                    // Ensure scanned_file_path column exists
+                    try {
+                        $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL");
+                    } catch (Exception $e) {
+                        // Column may already exist; ignore
+                    }
+
+                    // Insert note into database with both original and scanned Drive IDs
+                    $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, file_path, scanned_file_path, lecturer_id, upload_date, department, semester) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)');
                     $stmt->execute([
                         $subject_id,
                         $description,
-                        $filename,
+                        $driveFileId,
+                        $scannedDriveId,
                         $lecturer['id'],
                         $lecturer['department'],
                         $semester
                     ]);
                     $note_id = $pdo->lastInsertId();
 
-                    // Get subject name for logging
+                    // Log activity
                     $subj_stmt = $pdo->prepare('SELECT subject_name FROM subjects WHERE id = ?');
                     $subj_stmt->execute([$subject_id]);
                     $subj_name = $subj_stmt->fetchColumn();
 
                     logActivity($lecturer['id'], 'lecturer', 'upload', $note_id, "Uploaded notes for $subj_name");
-                    
-                    flash('success', 'Note uploaded to Google Drive successfully!');
+                    flash('success', 'Note uploaded and scanned successfully!');
                     redirect('dashboard.php');
                 } catch (Exception $e) {
                     $upload_error = 'Google Drive Error: ' . $e->getMessage();
                     if (file_exists($filepath)) unlink($filepath);
+                    if (isset($scanned_filepath) && file_exists($scanned_filepath)) unlink($scanned_filepath);
                 }
             } else {
                 $upload_error = 'Failed to save file temporarily. Please try again.';
