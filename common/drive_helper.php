@@ -12,20 +12,37 @@ class DriveHelper {
         $this->client->addScope(Google\Service\Drive::DRIVE_FILE);
         $this->client->setAccessType('offline');
 
+        $authUrl = BASE_URL . '/common/oauth2callback.php';
+
         if (file_exists(DRIVE_TOKEN_JSON)) {
-            $accessToken = json_decode(file_get_contents(DRIVE_TOKEN_JSON), true);
-            $this->client->setAccessToken($accessToken);
+            $tokenData = json_decode(file_get_contents(DRIVE_TOKEN_JSON), true);
+            if (empty($tokenData)) {
+                @unlink(DRIVE_TOKEN_JSON);
+                throw new Exception("Google Drive authorization not set up properly. Please <a href='{$authUrl}' target='_blank' style='text-decoration: underline; font-weight: bold; color: #dc2626;'>click here to authorize Google Drive</a>.");
+            }
+            
+            $this->client->setAccessToken($tokenData);
 
             // If the token is expired, refresh it.
             if ($this->client->isAccessTokenExpired()) {
-                if ($this->client->getRefreshToken()) {
-                    $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
-                    file_put_contents(DRIVE_TOKEN_JSON, json_encode($this->client->getAccessToken()));
+                $refreshToken = $this->client->getRefreshToken();
+                if ($refreshToken) {
+                    try {
+                        $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
+                        file_put_contents(DRIVE_TOKEN_JSON, json_encode($this->client->getAccessToken()));
+                    } catch (Exception $e) {
+                        // Refresh token is invalid/expired (e.g., invalid_grant).
+                        // Delete the invalid token.json so that we prompt for a new authorization!
+                        @unlink(DRIVE_TOKEN_JSON);
+                        throw new Exception("Google Drive authorization has expired or was revoked. Please <a href='{$authUrl}' target='_blank' style='text-decoration: underline; font-weight: bold; color: #dc2626;'>click here to re-authorize Google Drive</a>.");
+                    }
+                } else {
+                    @unlink(DRIVE_TOKEN_JSON);
+                    throw new Exception("Google Drive authorization has expired (no refresh token found). Please <a href='{$authUrl}' target='_blank' style='text-decoration: underline; font-weight: bold; color: #dc2626;'>click here to authorize Google Drive</a>.");
                 }
             }
         } else {
-            // No token found. We should inform the user to visit oauth2callback.php
-            throw new Exception("Google Drive not authorized. Please visit " . BASE_URL . "/common/oauth2callback.php to authorize.");
+            throw new Exception("Google Drive not authorized. Please <a href='{$authUrl}' target='_blank' style='text-decoration: underline; font-weight: bold; color: #dc2626;'>click here to authorize Google Drive</a> to enable note uploads.");
         }
         
         $this->service = new Google\Service\Drive($this->client);
@@ -38,12 +55,14 @@ class DriveHelper {
      * @param string $mimeType MIME type of the file
      * @return string Google Drive File ID
      */
-    public function uploadFile($filePath, $fileName, $mimeType = 'application/pdf') {
+    public function uploadFile($filePath, $fileName, $mimeType = 'application/pdf', $folderId = null) {
         $fileMetadata = new Google\Service\Drive\DriveFile([
             'name' => $fileName
         ]);
 
-        if (defined('DRIVE_FOLDER_ID') && !empty(DRIVE_FOLDER_ID)) {
+        if ($folderId !== null) {
+            $fileMetadata->setParents([$folderId]);
+        } elseif (defined('DRIVE_FOLDER_ID') && !empty(DRIVE_FOLDER_ID)) {
             $fileMetadata->setParents([DRIVE_FOLDER_ID]);
         }
 

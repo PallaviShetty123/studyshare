@@ -31,18 +31,29 @@ if (!$note) {
 // Log the activity
 logActivity($lecturer['id'], 'lecturer', 'delete', $note_id, "Deleted notes for " . ($note['subject_name'] ?? 'Unknown'));
 
-// Delete from Google Drive if it's a Drive ID
+// Delete from Google Drive if they are Drive IDs
 try {
     $drive = new DriveHelper();
-    $drive->deleteFile($note['file_path']);
+    if (!empty($note['file_path']) && strlen($note['file_path']) > 20 && strpos($note['file_path'], '.') === false) {
+        $drive->deleteFile($note['file_path']);
+    }
+    if (!empty($note['scanned_file_path']) && strlen($note['scanned_file_path']) > 20 && strpos($note['scanned_file_path'], '.') === false) {
+        $drive->deleteFile($note['scanned_file_path']);
+    }
 } catch (Exception $e) {
-    // If not a drive ID or delete fails, just continue
+    // Continue even if Drive delete fails
 }
 
-// Delete the local file if it exists (legacy)
+// Delete local original file if it exists
 $file_path = __DIR__ . '/../uploads/notes/' . $note['file_path'];
-if (file_exists($file_path)) {
-    unlink($file_path);
+if (!empty($note['file_path']) && file_exists($file_path)) {
+    @unlink($file_path);
+}
+
+// Delete local scanned file if it exists
+$scanned_file_path = __DIR__ . '/../uploads/scanned/' . $note['scanned_file_path'];
+if (!empty($note['scanned_file_path']) && file_exists($scanned_file_path)) {
+    @unlink($scanned_file_path);
 }
 
 // Delete from database

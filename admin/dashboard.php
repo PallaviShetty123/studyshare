@@ -32,7 +32,7 @@ $recent_notes = $pdo->query('
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="<?=BASE_URL?>/assets/css/admin.css">
 </head>
 <body>
     <div class="admin-layout">
@@ -117,7 +117,8 @@ $recent_notes = $pdo->query('
                                 <th>Semester</th>
                                 <th>Upload Date</th>
                                 <th>Views</th>
-                                <th>Actions</th>
+            <th>File</th>
+<th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,6 +135,13 @@ $recent_notes = $pdo->query('
                                             </span>
                                         </td>
                                         <td>
+                                            <?php if (!empty($note['scanned_file_path'])): ?>
+                                                <a href="<?= $note['scanned_file_path'] ?>" target="_blank" style="color: var(--primary);">Scanned PDF</a>
+                                            <?php else: ?>
+                                                <a href="<?= $note['normal_file_path'] ?>" target="_blank" style="color: var(--primary);">View File</a>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
                                             <div style="display: flex; gap: 0.5rem;">
                                                 <a href="edit_note.php?id=<?= $note['id'] ?>" class="btn btn-sm" style="background: #eef2ff; color: #6366f1;">Edit</a>
                                                 <a href="delete_note.php?id=<?= $note['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</a>
@@ -143,7 +151,7 @@ $recent_notes = $pdo->query('
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                         No notes uploaded yet. <a href="upload_notes.php" style="color: var(--primary); font-weight: 600;">Upload now</a>
                                     </td>
                                 </tr>

@@ -48,22 +48,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($new_filename) {
                     $filepath = NOTES_DIR . $new_filename;
                     
+                    // Create scanned copy as well
+                    $scanned_filepath = __DIR__ . '/../uploads/scanned/' . $new_filename;
+                    if (!is_dir(__DIR__ . '/../uploads/scanned/')) {
+                        mkdir(__DIR__ . '/../uploads/scanned/', 0755, true);
+                    }
+                    copy($filepath, $scanned_filepath);
+                    
                     try {
                         // Upload to Google Drive
                         $drive = new DriveHelper();
                         $driveFileId = $drive->uploadFile($filepath, $_FILES['file']['name'], $_FILES['file']['type']);
                         $drive->makePublic($driveFileId);
+
+                        $scannedDriveId = $drive->uploadFile($scanned_filepath, $_FILES['file']['name'], $_FILES['file']['type']);
+                        $drive->makePublic($scannedDriveId);
                         
-                        // Delete old file from Drive if it was a Drive ID
-                        if (strlen($file_path) > 20) { // Likely a Drive ID
+                        // Delete old files from Drive if they were Drive IDs
+                        if (strlen($file_path) > 20 && strpos($file_path, '.') === false) { // Likely a Drive ID
                             try { $drive->deleteFile($file_path); } catch(Exception $e) {}
                         }
-                        
+                        if (!empty($note['scanned_file_path']) && strlen($note['scanned_file_path']) > 20 && strpos($note['scanned_file_path'], '.') === false) { // Likely a Drive ID
+                            try { $drive->deleteFile($note['scanned_file_path']); } catch(Exception $e) {}
+                        }
+
                         $file_path = $driveFileId;
-                        if (file_exists($filepath)) unlink($filepath);
+                        $scanned_file_path = $scannedDriveId;
+
+                        // Delete local files after successful upload to Drive
+                        if (file_exists($filepath)) @unlink($filepath);
+                        if (file_exists($scanned_filepath)) @unlink($scanned_filepath);
                     } catch (Exception $e) {
                         $errors[] = 'Google Drive Error: ' . $e->getMessage();
-                        if (file_exists($filepath)) unlink($filepath);
+                        if (file_exists($filepath)) @unlink($filepath);
+                        if (file_exists($scanned_filepath)) @unlink($scanned_filepath);
                     }
                 } else {
                     $errors[] = 'Failed to upload new file.';
@@ -72,8 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (empty($errors)) {
-            $stmt = $pdo->prepare('UPDATE notes SET subject_id = ?, description = ?, file_path = ?, department = ?, semester = ? WHERE id = ?');
-            if ($stmt->execute([$subject_id, $description, $file_path, $department, $semester, $note_id])) {
+            // Ensure scanned_file_path column exists
+            try { $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL"); } catch (Exception $e) { }
+
+            if (!empty($_FILES['file']['name'])) {
+                $stmt = $pdo->prepare('UPDATE notes SET subject_id = ?, description = ?, file_path = ?, scanned_file_path = ?, department = ?, semester = ? WHERE id = ?');
+                $success_db = $stmt->execute([$subject_id, $description, $file_path, $scanned_file_path, $department, $semester, $note_id]);
+            } else {
+                $stmt = $pdo->prepare('UPDATE notes SET subject_id = ?, description = ?, department = ?, semester = ? WHERE id = ?');
+                $success_db = $stmt->execute([$subject_id, $description, $department, $semester, $note_id]);
+            }
+
+            if ($success_db) {
                 $success = 'Note updated successfully!';
                 // Refresh note data
                 $stmt = $pdo->prepare('SELECT * FROM notes WHERE id = ?');

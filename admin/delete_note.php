@@ -24,17 +24,27 @@ $stmt->execute([$note_id]);
 $note = $stmt->fetch();
 
 if ($note) {
-    // Delete from Google Drive
+    // Delete from Google Drive if they are Drive IDs
     try {
         $drive = new DriveHelper();
-        $drive->deleteFile($note['file_path']);
+        if (!empty($note['file_path']) && strlen($note['file_path']) > 20 && strpos($note['file_path'], '.') === false) {
+            $drive->deleteFile($note['file_path']);
+        }
+        if (!empty($note['scanned_file_path']) && strlen($note['scanned_file_path']) > 20 && strpos($note['scanned_file_path'], '.') === false) {
+            $drive->deleteFile($note['scanned_file_path']);
+        }
     } catch (Exception $e) {
         // Continue even if Drive delete fails
     }
 
-    // Delete the local file if it exists (legacy)
-    if (file_exists(NOTES_DIR . $note['file_path'])) {
-        unlink(NOTES_DIR . $note['file_path']);
+    // Delete local original file if it exists
+    if (!empty($note['file_path']) && file_exists(NOTES_DIR . $note['file_path'])) {
+        @unlink(NOTES_DIR . $note['file_path']);
+    }
+    
+    // Delete local scanned file if it exists
+    if (!empty($note['scanned_file_path']) && file_exists(SCANNED_DIR . $note['scanned_file_path'])) {
+        @unlink(SCANNED_DIR . $note['scanned_file_path']);
     }
     
     // Log the activity

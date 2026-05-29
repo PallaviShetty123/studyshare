@@ -2,7 +2,9 @@
 require_once __DIR__ . '/../common/auth_admin.php';
 require_once __DIR__ . '/../common/db.php';
 require_once __DIR__ . '/../common/functions.php';
+
 require_once __DIR__ . '/../common/drive_helper.php';
+require_once __DIR__ . '/../common/ocr_helper.php';
 
 $admin = getCurrentAdmin();
 $pdo = db();
@@ -27,57 +29,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($_FILES['file']['size'] > MAX_FILE_SIZE) {
         $errors[] = 'File size exceeds 10MB limit.';
     } else {
-        // Upload original file locally first
         $filename = uploadFile($_FILES['file'], NOTES_DIR);
         if ($filename) {
             $filepath = NOTES_DIR . $filename;
-            
-            // Scan the file and store a copy in the scanned directory
-            $scanned_filepath = __DIR__ . '/../uploads/scanned/' . $filename;
-            if (!is_dir(__DIR__ . '/../uploads/scanned/')) {
-                mkdir(__DIR__ . '/../uploads/scanned/', 0755, true);
+
+            // Determine file type
+            $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $isScanned = false;
+            $ocrText = null;
+
+            if ($fileExt === 'pdf') {
+                // Use OCR helper to decide if scanned PDF
+                $extractedText = extractTextFromPdf($filepath);
+                if (strlen(trim($extractedText)) < 100) {
+                    $isScanned = true;
+                    // Perform OCR and get text
+                    $ocrText = performOcr($filepath, SCANNED_DIR);
+                }
             }
-            copy($filepath, $scanned_filepath);
-            
+
             try {
-                // Upload original file to Google Drive
                 $drive = new DriveHelper();
-                $driveFileId = $drive->uploadFile($filepath, $_FILES['file']['name'], $_FILES['file']['type']);
-                $drive->makePublic($driveFileId);
-                
-                // Upload scanned file to Google Drive
-                $scannedDriveId = $drive->uploadFile($scanned_filepath, $_FILES['file']['name'], $_FILES['file']['type']);
-                $drive->makePublic($scannedDriveId);
-                
-                // Clean up local copies
-                if (file_exists($filepath)) { unlink($filepath); }
-                if (file_exists($scanned_filepath)) { unlink($scanned_filepath); }
-                
-                // Ensure scanned_file_path column exists (attempt alter, ignore errors)
-                try { $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL"); } catch (Exception $e) { }
-                
-                // Insert note with both original and scanned Drive IDs
-                $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, file_path, scanned_file_path, department, semester, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                if ($stmt->execute([$subject_id, $description, $driveFileId, $scannedDriveId, $department, $semester, $admin['id']])) {
+                $normalDriveLink = null;
+                $scannedDriveLink = null;
+
+                if ($isScanned) {
+                    $scannedDriveId = $drive->uploadFile($filepath, $_FILES['file']['name'], $_FILES['file']['type'], DRIVE_FOLDER_SCANNED);
+                    $drive->makePublic($scannedDriveId);
+                    $scannedDriveLink = $drive->getViewLink($scannedDriveId);
+                } else {
+                    $normalDriveId = $drive->uploadFile($filepath, $_FILES['file']['name'], $_FILES['file']['type'], DRIVE_FOLDER_NORMAL);
+                    $drive->makePublic($normalDriveId);
+                    $normalDriveLink = $drive->getViewLink($normalDriveId);
+                }
+
+                // Clean up local temporary file
+                if (file_exists($filepath)) { @unlink($filepath); }
+
+                // Ensure database columns exist (ignore errors)
+                try { $pdo->exec("ALTER TABLE notes ADD COLUMN normal_file_path VARCHAR(255) NULL"); } catch (Exception $e) {}
+                try { $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL"); } catch (Exception $e) {}
+                try { $pdo->exec("ALTER TABLE notes ADD COLUMN ocr_text LONGTEXT NULL"); } catch (Exception $e) {}
+                try { $pdo->exec("ALTER TABLE notes ADD COLUMN is_scanned BOOLEAN DEFAULT 0"); } catch (Exception $e) {}
+
+                // Insert note with appropriate data
+                $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, normal_file_path, scanned_file_path, ocr_text, is_scanned, department, semester, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $isScannedInt = $isScanned ? 1 : 0;
+                if ($stmt->execute([
+                    $subject_id,
+                    $description,
+                    $normalDriveLink,
+                    $scannedDriveLink,
+                    $ocrText,
+                    $isScannedInt,
+                    $department,
+                    $semester,
+                    $admin['id']
+                ])) {
                     $note_id = $pdo->lastInsertId();
-                    
-                    // Get subject name for logging
+
+                    // Log activity
                     $subj_stmt = $pdo->prepare('SELECT subject_name FROM subjects WHERE id = ?');
                     $subj_stmt->execute([$subject_id]);
                     $subj_name = $subj_stmt->fetchColumn();
-                    
                     logActivity($admin['id'], 'admin', 'upload', $note_id, "Uploaded notes for $subj_name");
-                    
-                    flash('success', 'Note uploaded to Google Drive successfully!');
+
+                    flash('success', 'Note uploaded successfully!');
                     redirect('upload_notes.php');
                 } else {
                     $errors[] = 'Failed to save note to database.';
                 }
             } catch (Exception $e) {
-                $errors[] = 'Google Drive Error: ' . $e->getMessage();
-                // Cleanup any leftover local files
-                if (file_exists($filepath)) { unlink($filepath); }
-                if (file_exists($scanned_filepath)) { unlink($scanned_filepath); }
+                $errors[] = 'Upload Error: ' . $e->getMessage();
+                if (file_exists($filepath)) { @unlink($filepath); }
             }
         } else {
             $errors[] = 'Failed to upload file.';

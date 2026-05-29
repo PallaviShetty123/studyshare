@@ -43,41 +43,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['note_file'])) {
             $filepath = $upload_dir . $filename;
             
             if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                // Scan the file and store in scanned directory
-                $scanned_filepath = __DIR__ . '/../uploads/scanned/' . $filename;
-                if (!is_dir(__DIR__ . '/../uploads/scanned/')) {
-                    mkdir(__DIR__ . '/../uploads/scanned/', 0755, true);
-                }
-                copy($filepath, $scanned_filepath);
+                // Determine file type and perform OCR if scanned
+                require_once __DIR__ . '/../common/ocr_helper.php';
+                $isScanned = false;
+                $ocrText = null;
 
-                // Upload original file to Google Drive
+                $extractedText = extractTextFromPdf($filepath);
+                if (strlen(trim($extractedText)) < 100) {
+                    $isScanned = true;
+                    // Perform OCR and get text
+                    $scanned_dir = __DIR__ . '/../uploads/scanned/';
+                    if (!is_dir($scanned_dir)) mkdir($scanned_dir, 0755, true);
+                    $ocrText = performOcr($filepath, $scanned_dir);
+                }
+
+                // Upload to Google Drive based on file type
                 try {
                     $drive = new DriveHelper();
-                    $driveFileId = $drive->uploadFile($filepath, $file['name'], $file['type']);
-                    $drive->makePublic($driveFileId);
+                    $normalDriveLink = null;
+                    $scannedDriveLink = null;
 
-                    // Upload scanned file to Google Drive
-                    $scannedDriveId = $drive->uploadFile($scanned_filepath, $file['name'], $file['type']);
-                    $drive->makePublic($scannedDriveId);
-
-                    // Optional: Delete local files after upload to Drive
-                    unlink($filepath);
-                    unlink($scanned_filepath);
-
-                    // Ensure scanned_file_path column exists
-                    try {
-                        $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL");
-                    } catch (Exception $e) {
-                        // Column may already exist; ignore
+                    if ($isScanned) {
+                        $scannedDriveId = $drive->uploadFile($filepath, $file['name'], $file['type'], DRIVE_FOLDER_SCANNED);
+                        $drive->makePublic($scannedDriveId);
+                        $scannedDriveLink = $drive->getViewLink($scannedDriveId);
+                    } else {
+                        $normalDriveId = $drive->uploadFile($filepath, $file['name'], $file['type'], DRIVE_FOLDER_NORMAL);
+                        $drive->makePublic($normalDriveId);
+                        $normalDriveLink = $drive->getViewLink($normalDriveId);
                     }
 
-                    // Insert note into database with both original and scanned Drive IDs
-                    $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, file_path, scanned_file_path, lecturer_id, upload_date, department, semester) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)');
+                    // Delete local file after successful upload to Drive
+                    if (file_exists($filepath)) @unlink($filepath);
+
+                    // Ensure database columns exist
+                    try { $pdo->exec("ALTER TABLE notes ADD COLUMN normal_file_path VARCHAR(255) NULL"); } catch (Exception $e) {}
+                    try { $pdo->exec("ALTER TABLE notes ADD COLUMN scanned_file_path VARCHAR(255) NULL"); } catch (Exception $e) {}
+                    try { $pdo->exec("ALTER TABLE notes ADD COLUMN ocr_text LONGTEXT NULL"); } catch (Exception $e) {}
+                    try { $pdo->exec("ALTER TABLE notes ADD COLUMN is_scanned BOOLEAN DEFAULT 0"); } catch (Exception $e) {}
+
+                    // Insert note into database with Google Drive links
+                    $stmt = $pdo->prepare('INSERT INTO notes (subject_id, description, normal_file_path, scanned_file_path, ocr_text, is_scanned, lecturer_id, upload_date, department, semester) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)');
+                    $isScannedInt = $isScanned ? 1 : 0;
                     $stmt->execute([
                         $subject_id,
                         $description,
-                        $driveFileId,
-                        $scannedDriveId,
+                        $normalDriveLink,
+                        $scannedDriveLink,
+                        $ocrText,
+                        $isScannedInt,
                         $lecturer['id'],
                         $lecturer['department'],
                         $semester
@@ -94,8 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['note_file'])) {
                     redirect('dashboard.php');
                 } catch (Exception $e) {
                     $upload_error = 'Google Drive Error: ' . $e->getMessage();
-                    if (file_exists($filepath)) unlink($filepath);
-                    if (isset($scanned_filepath) && file_exists($scanned_filepath)) unlink($scanned_filepath);
+                    if (file_exists($filepath)) @unlink($filepath);
+                    if (isset($scanned_filepath) && file_exists($scanned_filepath)) @unlink($scanned_filepath);
                 }
             } else {
                 $upload_error = 'Failed to save file temporarily. Please try again.';
@@ -272,6 +286,7 @@ $lecturer_notes = $stmt->fetchAll();
                                                 </div>
                                             </td>
                                             <td>
+                                                <a href="../user/download.php?id=<?= $note['id'] ?>" target="_blank" class="btn btn-sm" style="background-color: #6366f1; color: white; margin-right: 0.25rem; font-size: 0.8rem; border-radius: 4px; padding: 0.25rem 0.5rem; text-decoration: none; display: inline-block;">View Scanned</a>
                                                 <a href="delete-note.php?note_id=<?= $note['id'] ?>" 
                                                    class="btn btn-danger btn-sm" 
                                                    onclick="return confirm('Are you sure you want to delete this note?')">Delete</a>

@@ -18,11 +18,12 @@ define('ASSETS_URL', BASE_URL . '/assets');
 define('UPLOAD_URL', BASE_URL . '/uploads');
 define('PROFILE_URL', UPLOAD_URL . '/profile');
 
-define('UPLOAD_DIR', realpath(__DIR__ . '/../uploads') . '/');
+define('UPLOAD_DIR', 'D:/StudyShareStorage/uploads/');
+define('SCANNED_DIR', 'D:/StudyShareStorage/scanned/');
+define('TEMP_DIR', 'D:/StudyShareStorage/temp/');
 define('PROFILE_DIR', UPLOAD_DIR . 'profile/');
 define('NOTES_DIR', UPLOAD_DIR . 'notes/');
-define('SCANNED_DIR', UPLOAD_DIR . 'scanned/');
-define('MAX_FILE_SIZE', 10 * 1024 * 1024);
+define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
 define('ALLOWED_EXTENSIONS', ['pdf', 'doc', 'docx']);
 define('ALLOWED_MIME_TYPES', [
     'application/pdf',
@@ -36,4 +37,7 @@ define('ALLOWED_MIME_TYPES', [
 // Google Drive Configuration
 define('DRIVE_CLIENT_SECRET_JSON', __DIR__ . '/client_secret.json');
 define('DRIVE_TOKEN_JSON', __DIR__ . '/token.json');
-define('DRIVE_FOLDER_ID', $env['DRIVE_FOLDER_ID'] ?? '13qqWGXP6KuZ7YXUMw78iGyoHMBATrbI-');
+define('DRIVE_FOLDER_ID', $env['DRIVE_FOLDER_ID'] ?? '1yJ3sCZ95CrCrfM_CCfRg1Lk1BAkFF76e');
+
+define('DRIVE_FOLDER_NORMAL', '1-31ExYIoMe33KX3RzBTaF5msKFq5yo3P');
+define('DRIVE_FOLDER_SCANNED', '11SPgo7ra1YC-rakrQAXp_dEOGRFcCfsU');
