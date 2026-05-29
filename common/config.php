@@ -12,15 +12,15 @@ define('DB_USER', $env['DB_USER'] ?? 'root');
 define('DB_PASS', $env['DB_PASS'] ?? '');
 define('DB_CHARSET', $env['DB_CHARSET'] ?? 'utf8mb4');
 define('GEMINI_API_KEY', $env['GEMINI_API_KEY'] ?? '');
-
+define('GROQ_API_KEY', $env['GROQ_API_KEY'] ?? '');
 define('BASE_URL', $env['BASE_URL'] ?? '/studyshare');
 define('ASSETS_URL', BASE_URL . '/assets');
 define('UPLOAD_URL', BASE_URL . '/uploads');
 define('PROFILE_URL', UPLOAD_URL . '/profile');
 
-define('UPLOAD_DIR', 'D:/StudyShareStorage/uploads/');
-define('SCANNED_DIR', 'D:/StudyShareStorage/scanned/');
-define('TEMP_DIR', 'D:/StudyShareStorage/temp/');
+define('UPLOAD_DIR', __DIR__ . '/../uploads/');
+define('SCANNED_DIR', __DIR__ . '/../uploads/scanned/');
+define('TEMP_DIR', __DIR__ . '/../uploads/temp/');
 define('PROFILE_DIR', UPLOAD_DIR . 'profile/');
 define('NOTES_DIR', UPLOAD_DIR . 'notes/');
 define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB

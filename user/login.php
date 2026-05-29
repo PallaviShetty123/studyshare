@@ -33,8 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (!$student) {
             $errors[] = 'Invalid roll number or date of birth.';
+            logActivity($roll_no, 'student', 'login', $roll_no, 'Failed login attempt');
         } else {
             setStudentSession($student);
+            logActivity($student['roll_no'], 'student', 'login', $student['roll_no'], 'Student logged in successfully');
             redirect('dashboard.php');
         }
     }

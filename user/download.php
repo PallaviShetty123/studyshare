@@ -53,11 +53,21 @@ if ($is_student) {
 
 // Determine which file path or Google Drive ID to use based on role
 // Lecturers see the scanned one; students and admins see the uploaded one
-$fileId = $note['file_path']; // default original/uploaded file
-if ($is_lecturer) {
-    if (!empty($note['scanned_file_path'])) {
-        $fileId = $note['scanned_file_path'];
-    }
+$fileId = !empty($note['normal_file_path']) ? $note['normal_file_path'] : $note['file_path'];
+
+if ($is_lecturer && !empty($note['scanned_file_path'])) {
+    $fileId = $note['scanned_file_path'];
+}
+
+// Fallback if the primary file is missing but the other exists
+if (empty($fileId) && !empty($note['scanned_file_path'])) {
+    $fileId = $note['scanned_file_path'];
+}
+
+// If the database has a full URL (like a Google Drive view link), just redirect to it
+if (strpos($fileId, 'http://') === 0 || strpos($fileId, 'https://') === 0) {
+    header('Location: ' . $fileId);
+    exit;
 }
 
 // Detect if it is a Google Drive ID or a local filename

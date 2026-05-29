@@ -121,10 +121,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['note_file'])) {
 // Get messages
 $upload_message = flash('success');
 
-// Get lecturer subject details by assigned subject name
+// Get lecturer subject details by assigned subject name (legacy fallback)
 $stmt = $pdo->prepare('SELECT * FROM subjects WHERE subject_name = ? LIMIT 1');
 $stmt->execute([$lecturer['subject']]);
-$lecturer_subject = $stmt->fetch();
+$lecturer_subject_legacy = $stmt->fetch();
+
+// Fetch newly assigned subjects
+$stmt = $pdo->prepare('
+    SELECT * FROM lecturer_subject_assignments 
+    WHERE lecturer_id = ? AND status = 1 
+    ORDER BY created_at DESC
+');
+$stmt->execute([$lecturer['id']]);
+$assigned_subjects = $stmt->fetchAll();
 
 // Get lecturer's notes
 $stmt = $pdo->prepare('
@@ -186,8 +195,12 @@ $lecturer_notes = $stmt->fetchAll();
                 <div class="stat-card">
                     <div class="stat-icon">📘</div>
                     <div class="stat-info">
-                        <h3>Assigned Subject</h3>
-                        <p class="stat-value" style="font-size: 1.2rem;"><?= sanitize($lecturer_subject['subject_name'] ?? $lecturer['subject'] ?? 'Not assigned') ?></p>
+                        <h3>Assigned Subjects</h3>
+                        <?php if (!empty($assigned_subjects)): ?>
+                            <p class="stat-value" style="font-size: 1.2rem;"><?= count($assigned_subjects) ?> Subject<?= count($assigned_subjects) > 1 ? 's' : '' ?></p>
+                        <?php else: ?>
+                            <p class="stat-value" style="font-size: 1.2rem;"><?= sanitize($lecturer_subject_legacy['subject_name'] ?? $lecturer['subject'] ?? 'Not assigned') ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -208,6 +221,24 @@ $lecturer_notes = $stmt->fetchAll();
                 </div>
             </div>
 
+            <?php if (!empty($assigned_subjects)): ?>
+            <div style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: #1e293b; margin-bottom: 1rem;">My Assigned Subjects</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    <?php foreach ($assigned_subjects as $asub): ?>
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                <div style="font-size: 1.5rem;">📘</div>
+                                <h3 style="font-size: 1.1rem; font-weight: 600; color: #334155; margin: 0; line-height: 1.2;"><?= sanitize($asub['subject_name']) ?></h3>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Semester: Sem <?= $asub['semester'] ?></div>
+                            <div style="font-size: 0.85rem; color: #64748b;">Year: <?= sanitize($asub['year']) ?></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="dashboard-grid">
                 <section class="section-card">
                     <h2><span>📤</span> Upload New Note</h2>
@@ -225,12 +256,25 @@ $lecturer_notes = $stmt->fetchAll();
                     <?php endif; ?>
 
                     <form id="uploadForm" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="subject_id" value="<?= intval($lecturer_subject['id'] ?? 0) ?>">
                         
-                        <div class="form-group">
-                            <label>Subject (Auto-assigned)</label>
-                            <input type="text" class="form-control" value="<?= sanitize($lecturer_subject['subject_name'] ?? $lecturer['subject']) ?>" readonly style="background: #f1f5f9; color: #64748b;">
-                        </div>
+                        <?php if (!empty($assigned_subjects)): ?>
+                            <div class="form-group">
+                                <label>Assigned Subject *</label>
+                                <select name="subject_id" class="form-control" required style="padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    <?php foreach ($assigned_subjects as $asub): ?>
+                                        <option value="<?= $asub['subject_id'] ?>">
+                                            <?= sanitize($asub['subject_name']) ?> (Sem <?= $asub['semester'] ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        <?php else: ?>
+                            <input type="hidden" name="subject_id" value="<?= intval($lecturer_subject_legacy['id'] ?? 0) ?>">
+                            <div class="form-group">
+                                <label>Subject (Auto-assigned)</label>
+                                <input type="text" class="form-control" value="<?= sanitize($lecturer_subject_legacy['subject_name'] ?? $lecturer['subject']) ?>" readonly style="background: #f1f5f9; color: #64748b;">
+                            </div>
+                        <?php endif; ?>
 
                         <div class="form-group">
                             <label for="note_file">Select PDF File *</label>

@@ -37,9 +37,15 @@ if ($existing) {
 // Fallback: Using Title and Description as the text context since PDF parsing isn't available
 $context_text = "Subject: $title\nDescription: $description\nPlease generate a summary, key points, and flashcards based on this topic.";
 
-// Call Gemini API
-$api_key = defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '';
-$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $api_key;
+// Call Groq API
+$api_key = defined('GROQ_API_KEY') ? GROQ_API_KEY : '';
+
+if (empty($api_key)) {
+    echo json_encode(['success' => false, 'error' => 'Groq API key is missing or not configured.']);
+    exit;
+}
+
+$url = "https://api.groq.com/openai/v1/chat/completions";
 
 $prompt = "You are an AI tutor. Analyze the following academic context: \"$context_text\". 
 Return STRICT JSON ONLY, with NO markdown formatting, NO backticks, in this exact format:
@@ -52,18 +58,22 @@ Return STRICT JSON ONLY, with NO markdown formatting, NO backticks, in this exac
 }";
 
 $payload = [
-    'contents' => [
+    'model' => 'llama-3.1-8b-instant',
+    'messages' => [
         [
-            'parts' => [
-                ['text' => $prompt]
-            ]
+            'role' => 'user',
+            'content' => $prompt
         ]
-    ]
+    ],
+    'temperature' => 0.3
 ];
 
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $api_key
+]);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
 // SSL Verify disabled for local XAMPP compatibility
@@ -75,15 +85,22 @@ $curl_err = curl_error($ch);
 curl_close($ch);
 
 if ($http_code !== 200) {
+    $errorMsg = "AI Service unavailable.";
+    if ($http_code === 401) {
+        $errorMsg = "Authentication failed. Invalid API key.";
+    } elseif ($http_code === 429) {
+        $errorMsg = "Rate limit exceeded. Please try again later.";
+    }
+    
     echo json_encode([
         'success' => false, 
-        'error' => "AI Service unavailable. HTTP Code: $http_code. cURL Error: $curl_err. Response: $response"
+        'error' => "$errorMsg HTTP Code: $http_code. cURL Error: $curl_err. Response: $response"
     ]);
     exit;
 }
 
 $result = json_decode($response, true);
-$ai_text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+$ai_text = $result['choices'][0]['message']['content'] ?? '';
 
 // Clean up markdown block if the AI ignored instructions
 $ai_text = preg_replace('/```json\s*/', '', $ai_text);

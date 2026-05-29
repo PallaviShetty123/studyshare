@@ -146,6 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="manage_students.php" class="nav-item">
                     <span class="icon">👥</span> Manage Students
                 </a>
+                <a href="assign_subjects.php" class="nav-item">
+                    <span class="icon">📘</span> Assign Subjects
+                </a>
                 <a href="activity_log.php" class="nav-item">
                     <span class="icon">📜</span> Activity Log
                 </a>

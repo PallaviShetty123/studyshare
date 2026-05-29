@@ -1,6 +1,7 @@
 {
     "require": {
-        "google/apiclient": "2.12.1"
+        "google/apiclient": "2.12.1",
+        "fpdf/fpdf": "^1.86"
     },
     "config": {
         "audit": {
